@@ -37,7 +37,7 @@ class GAN():
 
         # Build and compile the generator
         self.generator = self.build_generator()
-        self.generator.compile(loss='binary_crossentropy', optimizer=optimizer)
+        #self.generator.compile(loss='binary_crossentropy', optimizer=optimizer)
 
         # The generator takes noise as input and generated imgs
         z = Input(shape=(1024,))
@@ -55,24 +55,31 @@ class GAN():
         self.combined.compile(loss='binary_crossentropy', optimizer=optimizer)
 
     def build_generator(self):
-
         noise_shape = (1024,)
 
         model = Sequential()
         model.add(Dense(1024, input_shape=noise_shape))
-        model.add(BatchNormalization())
-        model.add(LeakyReLU())
-        model.add(Reshape((32, 32, 1)))
+        model.add(BatchNormalization(momentum=.8))
+        model.add(LeakyReLU(alpha=0.01))
+        model.add(Reshape((8, 8, 16)))
 
-        model.add(Conv2DTranspose(8, kernel_size=(64,64), strides=(2,2) , padding='same', use_bias=False))
-        model.add(BatchNormalization())
+        model.add(Conv2DTranspose(256*2, kernel_size=4, strides=2, padding='same', use_bias=False))
+        model.add(BatchNormalization(momentum=.8))
         model.add(LeakyReLU(alpha=0.01))
 
-        model.add(Conv2DTranspose(4,  kernel_size=(128,128) , strides=(2, 2), padding='same', use_bias=False))
-        model.add(BatchNormalization())
+        model.add(Conv2DTranspose(256, kernel_size=4, strides=2, padding='same', use_bias=False))
+        model.add(BatchNormalization(momentum=.8))
         model.add(LeakyReLU(alpha=0.01))
 
-        model.add(Conv2DTranspose(1,  kernel_size=(256,256), strides=(2, 2), padding='same', use_bias=False , activation="tanh"))
+        model.add(Conv2DTranspose(256, kernel_size=4, strides=2, padding='same', use_bias=False))
+        model.add(BatchNormalization(momentum=.8))
+        model.add(LeakyReLU(alpha=0.01))
+
+        model.add(Conv2DTranspose(128, kernel_size=4, strides=2, padding='same', use_bias=False))
+        model.add(BatchNormalization(momentum=.8))
+        model.add(LeakyReLU(alpha=0.01))
+
+        model.add(Conv2DTranspose(1, kernel_size=4, strides=2, padding='same', use_bias=False, activation="tanh"))
         #model.add(Reshape((self.img_shape)))
 
         model.summary()
@@ -84,10 +91,8 @@ class GAN():
 
     def build_discriminator(self):
 
-        img_shape = (self.img_rows, self.img_cols, self.channels)
-
         model = Sequential()
-        model.add(Conv2D(16, 3, activation="relu", input_shape=img_shape))
+        model.add(Conv2D(16, 3, activation="relu", input_shape=self.img_shape))
         model.add(MaxPooling2D(2,2))
         model.add(Conv2D(16, 3, activation="relu"))
         model.add(MaxPooling2D(2, 2))
@@ -95,7 +100,7 @@ class GAN():
         model.add(Conv2D(64, 3, activation="relu"))
         model.add(Conv2D(64, 3, activation="relu"))
         model.add(MaxPooling2D(4, 4))
-        model.add(Flatten(input_shape=img_shape))
+        model.add(Flatten(input_shape=self.img_shape))
         model.add(Dense(128))
         model.add(LeakyReLU(alpha=0.2))
         model.add(Dense(128))
@@ -103,7 +108,7 @@ class GAN():
         model.add(Dense(1, activation='sigmoid'))
         model.summary()
 
-        img = Input(shape=img_shape)
+        img = Input(shape=self.img_shape)
         validity = model(img)
 
         return Model(img, validity)
@@ -116,7 +121,8 @@ class GAN():
         real_images = listdir(dir)
         loaded_images = list()
 
-        for image_name in real_images[:]:
+        for image_name in real_images[:50]:
+            print(image_name)
             try:
                 temp = load_img(dir+"\\"+str(image_name), color_mode = "grayscale", target_size = (self.img_rows, self.img_cols))
                 loaded_images.append(img_to_array(temp))
@@ -129,12 +135,10 @@ class GAN():
 
         # Rescale -1 to 1
         X_train = (X_train.astype(np.float32) - 127.5) / 127.5
-        #X_train = np.expand_dims(X_train, axis=3)
 
         half_batch = int(batch_size / 2)
 
         for epoch in range(epochs):
-
             # ---------------------
             #  Train Discriminator
             # ---------------------
@@ -144,17 +148,14 @@ class GAN():
             imgs = X_train[idx]
 
             noise = np.random.normal(0, 1, (half_batch, 1024))
-
             # Generate a half batch of new images
+
             gen_imgs = self.generator.predict(noise)
 
             #Soften Labels
 
             trues = np.ones(half_batch)#- (abs(np.random.normal(0, .1, size=half_batch)))
             falses = np.zeros(half_batch)# + (abs(np.random.normal(0, .1, size=half_batch)))
-
-
-
 
             # Train the discriminator
             d_loss_real = self.discriminator.train_on_batch(imgs, trues)

@@ -22,8 +22,8 @@ import numpy as np
 
 class GAN():
     def __init__(self):
-        self.img_rows = 256
-        self.img_cols = 256
+        self.img_rows = 64
+        self.img_cols = 64
         self.channels = 1
         self.img_shape = (self.img_rows, self.img_cols, self.channels)
 
@@ -40,7 +40,7 @@ class GAN():
         #self.generator.compile(loss='binary_crossentropy', optimizer=optimizer)
 
         # The generator takes noise as input and generated imgs
-        z = Input(shape=(1024,))
+        z = Input(shape=(100,))
         img = self.generator(z)
 
         # For the combined model we will only train the generator
@@ -55,32 +55,32 @@ class GAN():
         self.combined.compile(loss='binary_crossentropy', optimizer=optimizer)
 
     def build_generator(self):
-        noise_shape = (1024,)
+        noise_shape = (100,)
 
         model = Sequential()
-        model.add(Dense(1024, input_shape=noise_shape))
-        model.add(BatchNormalization(momentum=.8))
-        model.add(LeakyReLU(alpha=0.01))
-        model.add(Reshape((8, 8, 16)))
-
-        model.add(Conv2DTranspose(256*2, kernel_size=4, strides=2, padding='same', use_bias=False))
+        model.add(Dense(4*4*512, input_shape=noise_shape,  use_bias=False))
         model.add(BatchNormalization(momentum=.8))
         model.add(LeakyReLU(alpha=0.01))
 
-        model.add(Conv2DTranspose(256, kernel_size=4, strides=2, padding='same', use_bias=False))
+        model.add(Reshape((4,4,512)))
+
+        model.add(Conv2DTranspose(256,5, strides=2, padding= "same"))
         model.add(BatchNormalization(momentum=.8))
         model.add(LeakyReLU(alpha=0.01))
+        assert model.output_shape == (None, 8, 8,256)
 
-        model.add(Conv2DTranspose(256, kernel_size=4, strides=2, padding='same', use_bias=False))
+        model.add(Conv2DTranspose(128, 5, strides=2, padding="same"))
         model.add(BatchNormalization(momentum=.8))
         model.add(LeakyReLU(alpha=0.01))
+        assert model.output_shape == (None, 16, 16, 128)
 
-        model.add(Conv2DTranspose(128, kernel_size=4, strides=2, padding='same', use_bias=False))
+        model.add(Conv2DTranspose(64, 5, strides=2, padding="same"))
         model.add(BatchNormalization(momentum=.8))
         model.add(LeakyReLU(alpha=0.01))
+        assert model.output_shape == (None, 32, 32, 64)
 
-        model.add(Conv2DTranspose(1, kernel_size=4, strides=2, padding='same', use_bias=False, activation="tanh"))
-        #model.add(Reshape((self.img_shape)))
+        model.add(Conv2DTranspose(1, 5, strides=2, padding="same", activation="tanh"))
+        assert model.output_shape == (None,64, 64, 1)
 
         model.summary()
 
@@ -97,13 +97,13 @@ class GAN():
         model.add(Conv2D(16, 3, activation="relu"))
         model.add(MaxPooling2D(2, 2))
         model.add(Conv2D(64, 3, activation="relu"))
-        model.add(Conv2D(64, 3, activation="relu"))
-        model.add(Conv2D(64, 3, activation="relu"))
+        #model.add(Conv2D(64, 3, activation="relu"))
+        #model.add(Conv2D(64, 3, activation="relu"))
         model.add(MaxPooling2D(4, 4))
         model.add(Flatten(input_shape=self.img_shape))
-        model.add(Dense(128))
+        model.add(Dense(512))
         model.add(LeakyReLU(alpha=0.2))
-        model.add(Dense(128))
+        model.add(Dense(512))
         model.add(LeakyReLU(alpha=0.2))
         model.add(Dense(1, activation='sigmoid'))
         model.summary()
@@ -116,12 +116,13 @@ class GAN():
 
 
     def train(self, epochs, batch_size, save_interval):
+
         #List of available images
         dir = r"C:\Users\jdeek\PycharmProjects\Datascience\sudoArt\Redditors Art"
         real_images = listdir(dir)
         loaded_images = list()
 
-        for image_name in real_images[:50]:
+        for image_name in real_images:
             print(image_name)
             try:
                 temp = load_img(dir+"\\"+str(image_name), color_mode = "grayscale", target_size = (self.img_rows, self.img_cols))
@@ -147,7 +148,7 @@ class GAN():
             idx = np.random.randint(0, X_train.shape[0], half_batch)
             imgs = X_train[idx]
 
-            noise = np.random.normal(0, 1, (half_batch, 1024))
+            noise = np.random.normal(0, 1, (half_batch, 100))
             # Generate a half batch of new images
 
             gen_imgs = self.generator.predict(noise)
@@ -172,7 +173,7 @@ class GAN():
             valid_y = np.array([1] * batch_size)
 
             # Train the generator
-            noise = np.random.normal(0, 1, (batch_size, 1024))
+            noise = np.random.normal(0, 1, (batch_size, 100))
             g_loss = self.combined.train_on_batch(noise, valid_y)
 
 
@@ -183,9 +184,15 @@ class GAN():
             if epoch % save_interval == 0:
                 self.save_imgs(epoch)
 
+    def testG(self):
+        noise = np.random.normal(0, 1,(1, 100))
+        image = self.generator.predict(noise)
+        plt.imshow(image[0][:,:,0], interpolation="nearest", cmap='gray')
+
+
     def save_imgs(self, epoch):
         r, c = 3, 3
-        noise = np.random.normal(0, 1, (r * c, 1024))
+        noise = np.random.normal(0, 1, (r * c, 100))
         gen_imgs = self.generator.predict(noise)
 
         # Rescale images 0 - 1
@@ -198,11 +205,11 @@ class GAN():
                 axs[i,j].imshow(gen_imgs[cnt, :,:,0], cmap='gray')
                 axs[i,j].axis('off')
                 cnt += 1
-        fig.savefig(r"C:\Users\jdeek\OneDrive\Desktop\fakes\july"[:-1]+ str(epoch))
+        fig.savefig(r"C:\Users\jdeek\OneDrive\Desktop\fakes\aug"[:-1]+ str(epoch))
         plt.close()
 
 
 if __name__ == '__main__':
     gan = GAN()
-    gan.train(epochs=60000, batch_size=32, save_interval=100)
+    gan.train(epochs=60000, batch_size=1024, save_interval=50)
 

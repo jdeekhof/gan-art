@@ -64,22 +64,31 @@ class GAN():
 
         model.add(Reshape((4,4,512)))
 
-        model.add(Conv2DTranspose(256,5, strides=2, padding= "same"))
+        model.add(UpSampling2D(interpolation = 'nearest'))
+        model.add(ZeroPadding2D(1))
+        model.add(Conv2D(256, kernel_size=3,strides=1))
         model.add(BatchNormalization(momentum=.8))
         model.add(LeakyReLU(alpha=0.01))
+        print(model.output_shape)
         assert model.output_shape == (None, 8, 8,256)
 
-        model.add(Conv2DTranspose(128, 5, strides=2, padding="same"))
+        model.add(UpSampling2D(interpolation = 'nearest'))
+        model.add(ZeroPadding2D(1))
+        model.add(Conv2D(128, kernel_size=3, strides=1))
         model.add(BatchNormalization(momentum=.8))
         model.add(LeakyReLU(alpha=0.01))
         assert model.output_shape == (None, 16, 16, 128)
 
-        model.add(Conv2DTranspose(64, 5, strides=2, padding="same"))
+        model.add(UpSampling2D(interpolation = 'nearest'))
+        model.add(ZeroPadding2D(1))
+        model.add(Conv2D(64, kernel_size=3, strides=1))
         model.add(BatchNormalization(momentum=.8))
         model.add(LeakyReLU(alpha=0.01))
         assert model.output_shape == (None, 32, 32, 64)
 
-        model.add(Conv2DTranspose(1, 5, strides=2, padding="same", activation="tanh"))
+        model.add(UpSampling2D(interpolation='nearest'))
+        model.add(ZeroPadding2D(1))
+        model.add(Conv2D(1, kernel_size=3, strides=1))
         assert model.output_shape == (None,64, 64, 1)
 
         model.summary()
@@ -92,19 +101,17 @@ class GAN():
     def build_discriminator(self):
 
         model = Sequential()
-        model.add(Conv2D(16, 3, activation="relu", input_shape=self.img_shape))
-        model.add(MaxPooling2D(2,2))
-        model.add(Conv2D(16, 3, activation="relu"))
-        model.add(MaxPooling2D(2, 2))
-        model.add(Conv2D(64, 3, activation="relu"))
-        #model.add(Conv2D(64, 3, activation="relu"))
-        #model.add(Conv2D(64, 3, activation="relu"))
-        model.add(MaxPooling2D(4, 4))
+        model.add(Conv2D(128, (5, 5), strides=(2, 2), padding='same',
+                                input_shape=self.img_shape))
+        model.add(LeakyReLU())
+        model.add(Dropout(0.3))
+
+        model.add(Conv2D(512, (5, 5), strides=(2, 2), padding='same'))
+        model.add(LeakyReLU())
+        model.add(Dropout(0.3))
+
         model.add(Flatten(input_shape=self.img_shape))
-        model.add(Dense(512))
-        model.add(LeakyReLU(alpha=0.2))
-        model.add(Dense(512))
-        model.add(LeakyReLU(alpha=0.2))
+
         model.add(Dense(1, activation='sigmoid'))
         model.summary()
 
@@ -205,11 +212,11 @@ class GAN():
                 axs[i,j].imshow(gen_imgs[cnt, :,:,0], cmap='gray')
                 axs[i,j].axis('off')
                 cnt += 1
-        fig.savefig(r"C:\Users\jdeek\OneDrive\Desktop\fakes\aug"[:-1]+ str(epoch))
+        fig.savefig(r"C:\Users\jdeek\OneDrive\Desktop\fakes\aug"+ str(epoch))
         plt.close()
 
 
 if __name__ == '__main__':
     gan = GAN()
-    gan.train(epochs=60000, batch_size=1024, save_interval=50)
+    gan.train(epochs=60000, batch_size=512, save_interval=50)
 

@@ -10,6 +10,7 @@ from keras.layers.convolutional import UpSampling2D, Conv2D, MaxPooling2D, UpSam
 from keras.models import Sequential, Model
 from keras.optimizers import Adam
 from keras.datasets import mnist
+from keras import datasets
 
 import matplotlib.pyplot as plt
 
@@ -22,8 +23,8 @@ import numpy as np
 
 class GAN():
     def __init__(self):
-        self.img_rows = 64
-        self.img_cols = 64
+        self.img_rows = 28
+        self.img_cols = 28
         self.channels = 1
         self.img_shape = (self.img_rows, self.img_cols, self.channels)
 
@@ -58,38 +59,39 @@ class GAN():
         noise_shape = (100,)
 
         model = Sequential()
-        model.add(Dense(4*4*512, input_shape=noise_shape,  use_bias=False))
-        model.add(BatchNormalization(momentum=.8))
-        model.add(LeakyReLU(alpha=0.01))
-
-        model.add(Reshape((4,4,512)))
-
-        model.add(UpSampling2D(interpolation = 'nearest'))
-        model.add(ZeroPadding2D(1))
-        model.add(Conv2D(256, kernel_size=3,strides=1))
+        model.add(Dense(int(self.img_rows/4*self.img_cols/4*512), input_shape=noise_shape,  use_bias=False))
         model.add(BatchNormalization(momentum=.8))
         model.add(LeakyReLU(alpha=0.01))
         print(model.output_shape)
-        assert model.output_shape == (None, 8, 8,256)
 
-        model.add(UpSampling2D(interpolation = 'nearest'))
-        model.add(ZeroPadding2D(1))
-        model.add(Conv2D(128, kernel_size=3, strides=1))
-        model.add(BatchNormalization(momentum=.8))
-        model.add(LeakyReLU(alpha=0.01))
-        assert model.output_shape == (None, 16, 16, 128)
+        model.add(Reshape((int(self.img_rows/4), int(self.img_cols/4), 512)))
+
+        # model.add(UpSampling2D(interpolation = 'nearest'))
+        # model.add(ZeroPadding2D(1))
+        # model.add(Conv2D(256, kernel_size=3,strides=1))
+        # model.add(BatchNormalization(momentum=.8))
+        # model.add(LeakyReLU(alpha=0.01))
+        # print(model.output_shape)
+        # assert model.output_shape == (None, self.img_rows/4, self.img_cols/4,256)
+
+        # model.add(UpSampling2D(interpolation = 'nearest'))
+        # model.add(ZeroPadding2D(1))
+        # model.add(Conv2D(128, kernel_size=3, strides=1))
+        # model.add(BatchNormalization(momentum=.8))
+        # model.add(LeakyReLU(alpha=0.01))
+        # assert model.output_shape == (None,int(self.img_rows/4), int(self.img_rows/4), 128)
 
         model.add(UpSampling2D(interpolation = 'nearest'))
         model.add(ZeroPadding2D(1))
         model.add(Conv2D(64, kernel_size=3, strides=1))
         model.add(BatchNormalization(momentum=.8))
         model.add(LeakyReLU(alpha=0.01))
-        assert model.output_shape == (None, 32, 32, 64)
+        assert model.output_shape == (None, int(self.img_rows/2), int(self.img_rows/2), 64)
 
         model.add(UpSampling2D(interpolation='nearest'))
         model.add(ZeroPadding2D(1))
         model.add(Conv2D(1, kernel_size=3, strides=1))
-        assert model.output_shape == (None,64, 64, 1)
+        assert model.output_shape == (None,int(self.img_rows),int(self.img_rows), 1)
 
         model.summary()
 
@@ -123,24 +125,32 @@ class GAN():
 
 
     def train(self, epochs, batch_size, save_interval):
+        def get_real_images():
+            #List of available images
+            dir = r"C:\Users\jdeek\PycharmProjects\Datascience\sudoArt\Redditors Art"
+            real_images = listdir(dir)
+            loaded_images = list()
 
-        #List of available images
-        dir = r"C:\Users\jdeek\PycharmProjects\Datascience\sudoArt\Redditors Art"
-        real_images = listdir(dir)
-        loaded_images = list()
+            for image_name in real_images:
+                print(image_name)
+                try:
+                    temp = load_img(dir+"\\"+str(image_name), color_mode = "grayscale", target_size = (self.img_rows, self.img_cols))
+                    loaded_images.append(img_to_array(temp))
+                except:
+                    print("invalid_file")
 
-        for image_name in real_images:
-            print(image_name)
-            try:
-                temp = load_img(dir+"\\"+str(image_name), color_mode = "grayscale", target_size = (self.img_rows, self.img_cols))
-                loaded_images.append(img_to_array(temp))
-            except:
-                print("invalid_file")
+            # Load the dataset
 
-        # Load the dataset
+            X_train= np.array(loaded_images[2:])
+            return X_train
 
-        X_train= np.array(loaded_images[2:])
+        def get_mnist_images():
+            (mnist_data,q),(_,_) = datasets.mnist.load_data()
+            mnist = mnist_data.reshape(mnist_data.shape[0], 28, 28, 1).astype('float32')
+            return mnist
 
+        #X_train = get_mnist_images()
+        X_train = get_real_images()
         # Rescale -1 to 1
         X_train = (X_train.astype(np.float32) - 127.5) / 127.5
 
@@ -212,11 +222,11 @@ class GAN():
                 axs[i,j].imshow(gen_imgs[cnt, :,:,0], cmap='gray')
                 axs[i,j].axis('off')
                 cnt += 1
-        fig.savefig(r"C:\Users\jdeek\OneDrive\Desktop\fakes\aug"+ str(epoch))
+            fig.savefig(r"C:\Users\jdeek\OneDrive\Desktop\fakes\aug" + str(epoch))
         plt.close()
 
 
 if __name__ == '__main__':
     gan = GAN()
-    gan.train(epochs=60000, batch_size=512, save_interval=50)
+    gan.train(epochs=60000, batch_size=512, save_interval=501)
 
